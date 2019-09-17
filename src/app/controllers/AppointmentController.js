@@ -1,5 +1,5 @@
 import * as Yup from 'yup';
-import { startOfHour, parseISO, isBefore, format } from 'date-fns';
+import { startOfHour, parseISO, isBefore, format, subHours } from 'date-fns';
 import pt from 'date-fns/locale/pt';
 
 import Appointment from '../models/Appointment';
@@ -66,6 +66,14 @@ class AppointmentController {
         .json({ error: 'Campo providers_id com provider inválido!' });
     }
 
+    const user = await User.findByPk(req.userId);
+
+    if (user.id === provider_id) {
+      return res
+        .status(401)
+        .json({ error: 'User não pode ser igual ao provider' });
+    }
+
     /**
      * Check for past dates
      */
@@ -100,8 +108,6 @@ class AppointmentController {
      * Notification provider new Appointment
      */
 
-    const user = await User.findByPk(req.userId);
-
     const formattedDate = format(
       hourStart,
       "'dia' dd 'de' MMMM ', ás' H:mm'h'",
@@ -112,6 +118,29 @@ class AppointmentController {
       content: `Novo agendamento de ${user.name} para o ${formattedDate}`,
       user: provider_id,
     });
+
+    return res.json(appointment);
+  }
+
+  async delete(req, res) {
+    const appointment = await Appointment.findByPk(req.params.id);
+
+    if (appointment.user_id !== req.userId) {
+      return res.json({
+        error: 'Você não tem permissão para este cancelamento',
+      });
+    }
+
+    const dateWithSub = await subHours(appointment.date, 2);
+
+    if (isBefore(dateWithSub, new Date())) {
+      return res.status(400).json({
+        error: 'Não pode haver cancelamento com menos de duas horas!',
+      });
+    }
+
+    appointment.canceled_at = new Date();
+    appointment.save();
 
     return res.json(appointment);
   }
