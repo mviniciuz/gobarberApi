@@ -12,6 +12,7 @@ class UserControlller {
       password: Yup.string()
         .required()
         .min(6),
+      provider: Yup.boolean(),
     });
     if (!(await schema.isValid(req.body))) {
       return res.status(400).json({ error: 'Validation fails' });
